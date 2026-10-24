@@ -13,7 +13,7 @@ MAC_SSH=(ssh -i /home/hatch/.ssh/id_ed25519 -o IdentitiesOnly=yes
   -o GlobalKnownHostsFile=/root/.ssh/known_hosts
   -o ConnectTimeout=25 -o BatchMode=yes
   -o ProxyCommand="python3 /home/hatch/workspace/tools/ts-proxy-connect.py %h %p"
-  changsheng@100.90.248.113)
+  "${POOL_MAC_TARGET:-$(cat "$(dirname "$0")/.mac-target" 2>/dev/null)}")
 
 POOL4="instabox-pool-1 instabox-pool-2 instabox-pool-3 instabox-pool-4"
 ALL5="instabox-my-cloud-pc $POOL4"
