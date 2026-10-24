@@ -1,0 +1,46 @@
+# 机器注册表 —— 只记元数据。SSH 令牌值永不入仓，只记令牌名与存放位置。
+# 令牌统一存放在 Mac ~/.ssh/config（权限 600，备份 config.bak-20261024），别名即 Host 名。
+fleet:
+  provider: instabox
+  account: personal-free        # 永不收费档；闲置30分钟暂停；单次连续运行上限8小时
+  gateway: api.instabox.sh:2222  # SSH 网关，按令牌用户名路由
+  access_path: cloud-tibo ->(ts-proxy)-> mac-mini ->(ssh alias)-> gateway -> machine
+
+machines:
+  - name: my-cloud-pc
+    alias: instabox-my-cloud-pc
+    role: gatekeeper            # 门房：常驻服务，保护对象
+    specs: {vcpu: 4, ram_gib: 8, disk_gib: 20}
+    token_name: "本地反重力使用"   # 永不过期；与 fo-使用、macbook-ssh(2026-10-27过期) 同机
+    resident_services: [mail-relay:8893, gallery:8890, sub2api:8080, gemini-web2api:8083]
+    dispatch: protected         # 只读探活可，派活须主人点头
+  - name: pool-1
+    alias: instabox-pool-1
+    role: staging               # 试验田
+    specs: {vcpu: 4, ram_gib: 8, disk_gib: 20}
+    token_name: tibo-pool-1     # 永不过期
+    dispatch: open
+  - name: pool-2
+    alias: instabox-pool-2
+    role: render                # 夜班渲染
+    specs: {vcpu: 4, ram_gib: 8, disk_gib: 20}
+    token_name: tibo-pool-2
+    dispatch: open
+  - name: pool-3
+    alias: instabox-pool-3
+    role: agent-workstation     # 代理工位
+    specs: {vcpu: 4, ram_gib: 8, disk_gib: 20}
+    token_name: tibo-pool-3
+    dispatch: open
+  - name: pool-4
+    alias: instabox-pool-4
+    role: golden-and-flex       # 母机兼机动
+    specs: {vcpu: 4, ram_gib: 8, disk_gib: 20}
+    token_name: tibo-pool-4
+    dispatch: open
+
+snapshots:                       # 配额 5，规划见利用方案
+  quota: 5
+  used: 0
+  plan: [base-clean, render-ready, agent-ready, flex, flex]
+storage: {quota_gib: 200, used_gib: 1.8}

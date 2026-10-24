@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# pool — dispatch commands to the InstaBox fleet via Mac two-hop SSH.
+# Usage:
+#   pool status [alias ...]   parallel probe (default: all five; read-only)
+#   pool run <alias> <cmd>    run a command on one machine
+#   pool fanout <cmd>         run a command on pool-1..4 in parallel
+#   pool wake <alias>         wake one machine and print hostname + connect time
+# Aliases live in Mac ~/.ssh/config. Tokens never pass through here.
+set -u
+
+MAC_SSH=(ssh -i /home/hatch/.ssh/id_ed25519 -o IdentitiesOnly=yes
+  -o UserKnownHostsFile=/home/hatch/.ssh/known_hosts
+  -o GlobalKnownHostsFile=/root/.ssh/known_hosts
+  -o ConnectTimeout=25 -o BatchMode=yes
+  -o ProxyCommand="python3 /home/hatch/workspace/tools/ts-proxy-connect.py %h %p"
+  changsheng@100.90.248.113)
+
+POOL4="instabox-pool-1 instabox-pool-2 instabox-pool-3 instabox-pool-4"
+ALL5="instabox-my-cloud-pc $POOL4"
+PROBE='h=$(hostname); u=$(uptime | sed "s/.*up *//;s/,.*//"); l=$(cut -d" " -f1-3 /proc/loadavg); d=$(df -h / | awk "NR==2{print \$4}"); m=$(free -m | awk "NR==2{print \$7}"); echo "$h | up $u | load $l | rootfree $d | memavail ${m}MB"'
+
+cmd="${1:-}"; shift || true
+case "$cmd" in
+  status)
+    hosts="${*:-$ALL5}"
+    "${MAC_SSH[@]}" "bash -s" <<EOF
+for a in $hosts; do
+  ( s=\$(date +%s.%N)
+    out=\$(ssh -o ConnectTimeout=25 -o BatchMode=yes \$a '$PROBE' 2>&1) || out="UNREACHABLE: \$out"
+    e=\$(date +%s.%N)
+    printf '%s | connect %.1fs\n' "\$out" "\$(echo "\$e - \$s" | bc)" > /tmp/pool-status-\$a.txt
+  ) &
+done
+wait
+for a in $hosts; do echo "== \$a"; cat /tmp/pool-status-\$a.txt; rm -f /tmp/pool-status-\$a.txt; done
+EOF
+    ;;
+  run)
+    alias="$1"; shift
+    remote=$(printf '%q' "$*")
+    "${MAC_SSH[@]}" "ssh -o ConnectTimeout=25 -o BatchMode=yes $alias $remote"
+    ;;
+  fanout)
+    remote=$(printf '%q' "$*")
+    "${MAC_SSH[@]}" "bash -s" <<EOF
+S=\$(date +%s)
+for a in $POOL4; do
+  ( echo "== \$a"; ssh -o ConnectTimeout=25 -o BatchMode=yes \$a $remote 2>&1 ) > /tmp/pool-fan-\$a.txt 2>&1 &
+done
+wait
+for a in $POOL4; do cat /tmp/pool-fan-\$a.txt; rm -f /tmp/pool-fan-\$a.txt; done
+echo "WALL: \$(( \$(date +%s) - S ))s"
+EOF
+    ;;
+  wake)
+    alias="$1"
+    "${MAC_SSH[@]}" "bash -s" <<EOF
+s=\$(date +%s.%N)
+ssh -o ConnectTimeout=25 -o BatchMode=yes $alias 'hostname' 2>&1
+e=\$(date +%s.%N)
+echo "connect: \$(echo "\$e - \$s" | bc)s"
+EOF
+    ;;
+  *)
+    grep '^#' "$0" | head -9
+    ;;
+esac
