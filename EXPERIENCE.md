@@ -43,3 +43,19 @@
 - lesson: my-cloud-pc 已担邮件中继、展示页与两个 API 网关，是唯一不可炸的机器；重活一律走 pool，门房只读探活
 - evidence: 2026-10-24 盘点确认 4 个公网口均在役；利用方案定版
 - confidence: 高
+
+## E08 heredoc 经 bash -s 时内层 ssh 会吃掉脚本剩余行
+- cue: 用 heredoc 把多行脚本喂给跳板机 bash -s，脚本里又调 ssh
+- lesson: 内层 ssh 默认继承 stdin，会把 heredoc 剩余行当作远程输入吃掉，后续算耗时/echo 行静默不执行；
+  修法是内层 ssh 加 `< /dev/null`。status/fanout 因内层 ssh 在后台子 shell 中不受影响，单机 wake 曾中招
+- evidence: 2026-10-25 首轮 T1，pool wake 只出 hostname、不出 connect 行；手动复现同款命令正常后定位到 stdin 吞行；加 `< /dev/null` 后 5 台均出 connect 行
+- confidence: 高
+
+## E09 T1 冷样本的有效条件：wake 测量必须是本轮第一触点
+- cue: 测「闲置 >30 分钟后冷唤醒」耗时
+- lesson: 冷样本成立的前提是测量本身就是本轮第一次触机，且此前 30 分钟内无任何探活——轮次外的探活也会污染样本；
+  首触点要同时记 uptime：uptime 若显示本轮前不久刚（重）启，样本即作废，宁可记「未测到」也不拿暖数冒充冷数。
+  暖态基线（Mac→机器一段）：1.6–1.8 秒，5 台横向差异 <0.2 秒；端到端（云端→Mac→机器）顺序单台约 5–6 秒
+- evidence: 2026-10-25 首轮，pool-1~4 首触点 uptime 31–33 分钟且逐台错开约 1 分钟（约 23:56–23:58 已有顺序唤醒），冷样本作废；
+  修后 wake 暖数：my-cloud-pc 1.79s、pool-1 1.62s、pool-2 1.64s、pool-3 1.65s、pool-4 1.82s
+- confidence: 中（暖数已实测；冷唤醒秒级仍待下一 T1 轮次以第一触点方式补测）
