@@ -7,7 +7,7 @@ agent:
 policy_snapshot: ""
 theme:
 machines: ""
-status: 进行中
+status: 进行中   # 已完成 / 失败 / 中止-让位 / 中止-其他 / 数据作废
 ---
 
 # 实验标题

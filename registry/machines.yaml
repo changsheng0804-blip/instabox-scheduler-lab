@@ -2,6 +2,7 @@
 # 令牌统一存放在 Mac ~/.ssh/config（权限 600，备份 config.bak-20261024），别名即 Host 名。
 fleet:
   provider: instabox
+  account_label: ACCT-B   # 2026-10-24 人类指定；智能体 muse (Tibo_cs)；对方为 ACCT-A (muse-cr)
   account: personal-free        # 永不收费档；闲置30分钟暂停；单次连续运行上限8小时
   gateway: api.instabox.sh:2222  # SSH 网关，按令牌用户名路由
   access_path: cloud-tibo ->(ts-proxy)-> mac-mini ->(ssh alias)-> gateway -> machine
